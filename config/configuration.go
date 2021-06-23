@@ -4,14 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/gmail/v1"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
 )
+
+var authcode string
+
+// HTTP Server and handler for getting the authcode passing as a query to Reporting-reader backend client after Resource owner authorization
+func HandleAuthCode(w http.ResponseWriter, req *http.Request) {
+	authcode = req.URL.Query().Get("code")
+}
+func init() {
+	go func() {
+		http.HandleFunc("/", HandleAuthCode)
+		http.ListenAndServe("localhost:8080", nil)
+	}()
+}
 
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
@@ -32,13 +47,9 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
-
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code: %v", err)
-	}
-
-	tok, err := config.Exchange(context.TODO(), authCode)
+	time.Sleep(20 * time.Second)
+	log.Println(authcode)
+	tok, err := config.Exchange(context.TODO(), authcode)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
 	}
@@ -70,7 +81,7 @@ func saveToken(path string, token *oauth2.Token) {
 
 type Config struct {
 	AuthorizedHTTPClient *http.Client
-	Username             string  //String User@domain
+	Username             string //String User@domain
 }
 
 //NewConfig exchange OAUTH credentianls for an access token and return the authorized http client based on the Scope defined in the func args
@@ -80,15 +91,13 @@ func NewConfig(filename string, username string) (*Config, error) {
 		log.Printf("Error: %v", err)
 		return nil, err
 	}
-	log.Printf("SECRET : %v", string(secret))
-	conf, err := google.ConfigFromJSON(secret, gmail.GmailReadonlyScope)
+	conf, err := google.ConfigFromJSON(secret, gmail.GmailModifyScope)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err
 	}
-	log.Printf("CONF: %v", conf)
 	client := getClient(conf)
-
+	log.Printf("OAuth2.0 Flow Succeeded: Granted Access for REPORTING-READER BACKEND")
 	return &Config{
 		AuthorizedHTTPClient: client,
 		Username:             username,

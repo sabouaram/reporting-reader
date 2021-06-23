@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/base64"
+	"fmt"
 	"log"
 
 	"github.com/sabouaram/reporting-reader/config"
@@ -23,19 +23,14 @@ func (a *Application) StartApp() {
 			log.Println("Error: %v", err)
 		}
 		log.Printf("Gmail Backend Authorized HTTP Client Service Created Successfully")
-
 		// Listing User messages based on a defined Query
-		req := gmailService.Users.Messages.List("me").Q("from: :is:unread Has:attachment ")
-		if err != nil {
-			log.Println(err)
-		}
-		r, err := req.Do()
+		req := gmailService.Users.Messages.List("me").Q("from: :is:unread Has:attachment")
 
+		r, err := req.Do()
 		if err != nil {
 			log.Fatalf("Unable to retrieve messages: %v", err)
 		}
 		log.Printf("Processing %v Unreaded mail with attachment...\n", len(r.Messages))
-
 		// Processing Unreaded mails with attachement
 		msgs := []*gmail.Message{}
 		for _, v := range r.Messages {
@@ -43,15 +38,17 @@ func (a *Application) StartApp() {
 			if err != nil {
 				log.Fatal("Error while getting Unreaded messages")
 			}
-			log.Println(msg)
+			//log.Println(msg)
 			msgs = append(msgs, msg)
 		}
 		for _, v := range msgs {
-			attach, _ := gmailService.Users.Messages.Attachments.Get("me", v.Id, v.Payload.Body.AttachmentId).Do()
-			decoded, err := base64.StdEncoding.DecodeString(attach.Data)
-			if err == nil {
-				log.Println("ATTACHMENT", decoded)
+			attach, err := gmailService.Users.Messages.Attachments.Get("me", v.Id, v.Payload.Body.AttachmentId).Do()
+			log.Println("IDs:", v.Payload.Body.AttachmentId)
+			fmt.Println(attach.Data)
+			if err != nil {
+				log.Println(err)
 			}
+
 		}
 
 		/*decoded_attachments := []byte{}
