@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -70,24 +70,28 @@ func saveToken(path string, token *oauth2.Token) {
 
 type Config struct {
 	AuthorizedHTTPClient *http.Client
+	Username             string  //String User@domain
 }
 
 //NewConfig exchange OAUTH credentianls for an access token and return the authorized http client based on the Scope defined in the func args
-func NewConfig(filename string, gmailScope string) (*Config, error) {
+func NewConfig(filename string, username string) (*Config, error) {
 	secret, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err
 	}
-	conf, err := google.ConfigFromJSON(secret, gmailScope)
+	log.Printf("SECRET : %v", string(secret))
+	conf, err := google.ConfigFromJSON(secret, gmail.GmailReadonlyScope)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err
 	}
+	log.Printf("CONF: %v", conf)
 	client := getClient(conf)
 
 	return &Config{
 		AuthorizedHTTPClient: client,
+		Username:             username,
 	}, nil
 
 }
