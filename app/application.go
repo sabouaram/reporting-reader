@@ -1,12 +1,15 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/csv"
 	"github.com/sabouaram/reporting-reader/config"
+	"github.com/360EntSecGroup-Skylar/excelize"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
-	"io/ioutil"
+	"io"
 	"log"
 	"strings"
 )
@@ -47,10 +50,12 @@ func (a *Application) StartApp() {
 				if err != nil {
 					log.Println("ERROR IN DECODING ATTACHMENT")
 				}
-				// Just for testing
-				err = ioutil.WriteFile("Attachment."+ext, decoded, 0644)
-				if err != nil {
-					log.Printf("Failed to write attachment")
+				switch ext {
+				case "csv":
+					records := csvReader(decoded)
+					log.Println(records)
+				case "xlsx":
+					xlsxReader(decoded)
 				}
 
 			}
@@ -88,4 +93,44 @@ func checkType(Filename string) bool {
 	} else {
 		return false
 	}
+}
+
+// Processing Bliink csv reports
+func csvReader(data []byte) (records []string) {
+	Data := string(data)
+	tmp := ""
+	r := csv.NewReader(strings.NewReader(Data))
+	r.Comment = '#' // Comment symbol
+	r.Comma = ','   // CSV Separator
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if len(record) > 0 {
+			tmp = strings.Join(record, "")
+			records = append(records, tmp)
+		}
+	}
+	return records
+}
+
+// Processing Bliink xlsx reports
+func xlsxReader(data []byte) {
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		log.Println("Failed to convert received bytes to excelize file pointer ")
+	}
+	sheetMap := f.GetSheetMap()
+	for _ , v := range sheetMap {
+		log.Println("SHEET: ", v)
+		for _, row := range f.GetRows(v) {
+			for _, colCell := range row {
+				log.Println(colCell)
+			}
+		}
+
+	}
+
+
 }
