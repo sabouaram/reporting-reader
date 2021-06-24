@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"encoding/base64"
-	"io/ioutil"
-	"log"
-
 	"github.com/sabouaram/reporting-reader/config"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+	"io/ioutil"
+	"log"
+	"strings"
 )
 
 type Application struct {
@@ -37,9 +37,8 @@ func (a *Application) StartApp() {
 			if err != nil {
 				log.Fatal("Error while getting Unreaded messages")
 			}
-			msgAttachIds := getMessageAttachments(msg)
-
-			for _, attID := range msgAttachIds {
+			mRes := getMessageAttachments(msg)
+			for attID, ext := range mRes {
 				Attachement, err := gmailService.Users.Messages.Attachments.Get(a.Config.Username, v.Id, attID).Do()
 				if err != nil {
 					log.Println("Error getting the attachment %v of Message %v", attID, v.Id)
@@ -49,7 +48,7 @@ func (a *Application) StartApp() {
 					log.Println("ERROR IN DECODING ATTACHMENT")
 				}
 				// Just for testing
-				err = ioutil.WriteFile("Attachment", decoded, 0644)
+				err = ioutil.WriteFile("Attachment."+ext, decoded, 0644)
 				if err != nil {
 					log.Printf("Failed to write attachment")
 				}
@@ -62,29 +61,31 @@ func (a *Application) StartApp() {
 
 }
 
-/*
-// Get AttachmentIDs of multiple messages
-func getMessagesAttachments(messages []*gmail.Message) (attachIDS []string) {
-	attachId := []string{}
-	for _, v := range messages {
-		attchmsg := getMessageAttachments(v)
-		if len(attchmsg) > 0 {
-			for k, _ := range attchmsg {
-				attachId = append(attachId, attchmsg[k])
-			}
-		}
-	}
-	return attachId
-}*/
-
-// Get AttachmentIDs of a single Message Body
-func getMessageAttachments(message *gmail.Message) (attachIDs []string) {
+// Get AttachmentIDs of a single Message Body that contains CSV or XLSX files
+// return a map: AttId=>extension
+func getMessageAttachments(message *gmail.Message) (MapAttIdExt map[string]string) {
+	mRes := make(map[string]string)
 	var parts = message.Payload.Parts
-	attachId := []string{}
 	for _, v := range parts {
-		if v.Filename != "" && len(v.Filename) > 0 {
-			attachId = append(attachId, v.Body.AttachmentId)
+		if v.Filename != "" && len(v.Filename) > 0 && checkType(v.Filename) == true {
+			mRes[v.Body.AttachmentId] = getType(v.Filename)
+			log.Println(v.Filename)
 		}
 	}
-	return attachId
+	return mRes
+}
+
+// Return File extension
+func getType(Filename string) string {
+	s := strings.Split(Filename, ".")
+	return s[len(s)-1]
+}
+
+// Check if the attachment file is a csv or an xlsx
+func checkType(Filename string) bool {
+	if strings.Contains(Filename, ".xlsx") == true || strings.Contains(Filename, ".csv") == true {
+		return true
+	} else {
+		return false
+	}
 }
