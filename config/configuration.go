@@ -77,8 +77,8 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 type Config struct {
-	AuthorizedHTTPClient *http.Client
-	Username             string //String User@domain
+	AuthorizedHTTPClient *http.Client // Authorized HTTP client ==gRPC==> (Gmail API---SMTP SERVER)
+	Username             string // user@domain
 }
 
 //NewConfig exchange OAUTH credentianls for an access token and return the authorized http client based on the Scope defined in the func args
@@ -88,7 +88,7 @@ func NewConfig(filename string, username string) (*Config, error) {
 		log.Printf("Error: %v", err)
 		return nil, err
 	}
-	conf, err := google.ConfigFromJSON(secret, gmail.GmailModifyScope)
+	conf, err := google.ConfigFromJSON(secret, gmail.GmailModifyScope, gmail.GmailLabelsScope)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err

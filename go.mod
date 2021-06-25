@@ -3,7 +3,7 @@ module github.com/sabouaram/reporting-reader
 go 1.15
 
 require (
-	github.com/360EntSecGroup-Skylar/excelize v1.4.1 // indirect
+	github.com/360EntSecGroup-Skylar/excelize/v2 v2.4.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/tealeg/xlsx v1.0.5 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
