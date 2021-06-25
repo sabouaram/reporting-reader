@@ -6,13 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"errors"
+	"io"
+	"log"
+	"strings"
+
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/sabouaram/reporting-reader/config"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
-	"io"
-	"log"
-	"strings"
 )
 
 type Application struct {
@@ -45,14 +46,18 @@ func (a *Application) StartApp() {
 				log.Println("Error while getting Unreaded messages")
 				return
 			}
-			mRes , err := getMessageAttachments(msg)
-			// Mark the Processed mail as READ
-			_ , err = gmailService.Users.Messages.Modify(a.Config.Username, v.Id, &gmail.ModifyMessageRequest{
-				RemoveLabelIds: [] string{"UNREAD"},
-			}).Do()
-			log.Println(err)
+
+			mRes, err := getMessageAttachments(msg)
 			if err != nil {
 				log.Println("Failed to get Messages Attachments IDs")
+				return
+			}
+			// Mark the Processed mail as READ
+			_, err = gmailService.Users.Messages.Modify(a.Config.Username, v.Id, &gmail.ModifyMessageRequest{
+				RemoveLabelIds: []string{"UNREAD"},
+			}).Do()
+			if err != nil {
+				log.Println("Failed to mark processed email as readed")
 				return
 			}
 			for attID, ext := range mRes {
@@ -66,13 +71,13 @@ func (a *Application) StartApp() {
 				}
 				switch ext {
 				case "csv":
-					records , err := csvReader(decoded)
+					records, err := csvReader(decoded)
 					if err == nil {
 						log.Println(records)
 					}
 				case "xlsx":
-					colcells , err := xlsxReader(decoded)
-					if err == nil  {
+					colcells, err := xlsxReader(decoded)
+					if err == nil {
 						log.Println(colcells)
 					}
 				}
@@ -87,7 +92,7 @@ func (a *Application) StartApp() {
 
 // Get AttachmentIDs of a single Message Body that contains CSV or XLSX files
 // return a map: AttId=>extension
-func getMessageAttachments(message *gmail.Message) (MapAttIdExt map[string]string, err error ) {
+func getMessageAttachments(message *gmail.Message) (MapAttIdExt map[string]string, err error) {
 	var parts = message.Payload.Parts
 	if len(parts) > 0 {
 		mRes := make(map[string]string)
@@ -97,7 +102,7 @@ func getMessageAttachments(message *gmail.Message) (MapAttIdExt map[string]strin
 				log.Println(v.Filename)
 			}
 		}
-		return mRes , nil
+		return mRes, nil
 	}
 	return nil, errors.New("Empty Message Parts")
 }
@@ -119,7 +124,7 @@ func checkType(Filename string) bool {
 
 // Processing Bliink csv reports
 func csvReader(data []byte) (records []string, err error) {
-    if len(data) > 0 {
+	if len(data) > 0 {
 		Data := string(data)
 		tmp := ""
 		r := csv.NewReader(strings.NewReader(Data))
@@ -135,35 +140,32 @@ func csvReader(data []byte) (records []string, err error) {
 				records = append(records, tmp)
 			}
 		}
-		return records , nil
+		return records, nil
 	}
-	return nil , errors.New("Empty File bytes slice")
+	return nil, errors.New("Empty File bytes slice")
 }
 
 // Processing Bliink xlsx reports
-func xlsxReader(data []byte) (colCells []string, err error){
+func xlsxReader(data []byte) (colCells []string, err error) {
 	if len(data) > 0 {
 		f, err := excelize.OpenReader(bytes.NewReader(data))
 		if err != nil {
 			return nil, errors.New("Failed to convert received bytes to excelize file pointer ")
 		}
 		sheetMap := f.GetSheetMap()
-		for k , v := range sheetMap {
-			log.Println("SHEET", k , ":", v)
-			rows , err := f.GetRows(v)
+		for k, v := range sheetMap {
+			log.Println("SHEET", k, ":", v)
+			rows, err := f.GetRows(v)
 			if err != nil {
 				return nil, errors.New("Failed in processing a row in xlsx file")
 			}
-			for _ , row := range rows {
-				for _ , colcell := range row {
-					colCells = append(colCells , colcell)
+			for _, row := range rows {
+				for _, colcell := range row {
+					colCells = append(colCells, colcell)
 				}
 			}
 		}
-		return colCells , nil
+		return colCells, nil
 	}
 	return nil, errors.New("Empty File bytes slice")
 }
-
-
-
