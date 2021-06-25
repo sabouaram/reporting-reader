@@ -18,7 +18,7 @@ import (
 
 type Application struct {
 	Config *config.Config
-	//Models *models.Models
+	//Filter *filters.Filter
 }
 
 func (a *Application) StartApp() {
@@ -31,7 +31,7 @@ func (a *Application) StartApp() {
 		}
 		log.Println("Gmail Backend Authorized HTTP Client Service Created Successfully")
 		// Listing User messages based on a defined Query
-		req := gmailService.Users.Messages.List("me").Q("from: :is:unread Has:attachment")
+		req := gmailService.Users.Messages.List(a.Config.Username).Q("from: :is:unread Has:attachment")
 		r, err := req.Do()
 		if err != nil {
 			// No Messages correspond to the Query
