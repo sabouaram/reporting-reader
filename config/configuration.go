@@ -19,7 +19,9 @@ var authcode string
 
 // HTTP Server and handler for getting the authcode passing as a query to Reporting-reader backend client after Resource owner authorization
 func HandleAuthCode(w http.ResponseWriter, req *http.Request) {
-	authcode = req.URL.Query().Get("code")
+	keys, _ := req.URL.Query()["code"]
+	key := keys[0]
+	authcode = string(key)
 }
 func init() {
 	go func() {
@@ -45,7 +47,6 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 	time.Sleep(20 * time.Second)
-	log.Println(authcode)
 	tok, err := config.Exchange(context.TODO(), authcode)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
@@ -78,7 +79,7 @@ func saveToken(path string, token *oauth2.Token) {
 
 type Config struct {
 	AuthorizedHTTPClient *http.Client // Authorized HTTP client ==gRPC==> (Gmail API---SMTP SERVER)
-	Username             string // user@domain
+	Username             string       // user@domain
 }
 
 //NewConfig exchange OAUTH credentianls for an access token and return the authorized http client based on the Scope defined in the func args
