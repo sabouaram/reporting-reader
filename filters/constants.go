@@ -1,9 +1,13 @@
 package filters
 
-type Query string
-// TO DO FILTERS https://business.tutsplus.com/tutorials/how-to-search-your-emails-in-gmail--cms-27445
+// Gmail search filters
+
 const (
-	name = 
+	LabelRead   = "Label:read"      // Readed mails
+	LabelUnread = "Label:unread"    // Unreaded mails
+	AfterDate   = "After:"          // After yyyy/mm/dd
+	File        = "Filename: "      // extension or name of a specific one
+	HasAttach   = "Has:attachment " // Attachments Specific descriptor
+	From        = "From:"           // Sender
+	To          = "To:"             // Receiver
 )
-
-

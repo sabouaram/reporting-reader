@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"errors"
+	"github.com/sabouaram/reporting-reader/filters"
 	"io"
 	"log"
 	"strings"
@@ -16,60 +17,117 @@ import (
 	"google.golang.org/api/option"
 )
 
+// Application's struct embeds Config, GmailFilter & private gmail gRPC client instances
 type Application struct {
-	Config *config.Config
-	//Filter *filters.Filter
+	Config   *config.Config
+	Filter   *filters.GmailFilter
+	service  *gmail.Service
+	messages []*gmail.Message
 }
 
-func (a *Application) StartApp() {
-	// Create a new gmail service
-	if a.Config.AuthorizedHTTPClient != nil {
-		gmailService, err := gmail.NewService(context.Background(), option.WithHTTPClient(a.Config.AuthorizedHTTPClient))
-		if err != nil {
-			log.Println("Error Failed to create a new Gmail API Service: %v", err)
-			return
-		}
-		log.Println("Gmail Backend Authorized HTTP Client Service Created Successfully")
-		// Listing User messages based on a defined Query
-		req := gmailService.Users.Messages.List(a.Config.Username).Q("from: :is:unread Has:attachment")
-		r, err := req.Do()
-		if err != nil {
-			// No Messages correspond to the Query
-			log.Println("Unable to retrieve messages: %v", err)
-			return
-		}
-		log.Println("=> Processing ", len(r.Messages), "unreaded mail with attachment")
-		// Processing Unreaded mails with attachement
-		for _, v := range r.Messages {
-			msg, err := gmailService.Users.Messages.Get(a.Config.Username, v.Id).Do()
-			if err != nil {
-				log.Println("Error while getting Unreaded messages")
-				return
-			}
+// Creates Application's new client gRPC service instance
+func (a *Application) newGmailService() (err error) {
+	a.service, err = gmail.NewService(context.Background(), option.WithHTTPClient(a.Config.AuthorizedHTTPClient))
+	if err != nil {
+		return errors.New("Error Failed to create a new Gmail API Service")
+	}
+	log.Println("Gmail Backend Authorized HTTP Client Service Created Successfully")
+	return nil
+}
 
-			mRes, err := getMessageAttachments(msg)
+// Application's constructor
+func NewApplication(conf *config.Config, filter *filters.GmailFilter) (*Application, error) {
+	if conf.Username != "" && conf.AuthorizedHTTPClient != nil && filter.Query != "" {
+		return &Application{
+			Config: conf,
+			Filter: filter,
+		}, nil
+	} else {
+		return nil, errors.New("Failed to create new Application instance")
+	}
+
+}
+
+// Returns an RPC response => ListMessagesResponse that contains all mails based on Application's embedded Filter query
+func (a *Application) listMessages() (*gmail.ListMessagesResponse, error) {
+	query := a.service.Users.Messages.List(a.Config.Username).Q(a.Filter.Query)
+	list, err := query.Do()
+	if err != nil {
+		return nil, errors.New("No messages correspond to the defined query ")
+	} else {
+		return list, nil
+	}
+}
+
+// Fills Application's gmail Messages slice
+func (a *Application) setMessages(list *gmail.ListMessagesResponse) error {
+	if len(list.Messages) > 0 {
+		for _, v := range list.Messages {
+			msg, err := a.service.Users.Messages.Get(a.Config.Username, v.Id).Do()
 			if err != nil {
-				log.Println("Failed to get Messages Attachments IDs")
-				return
+				return errors.New("Failed to get an existed user message")
 			}
-			// Mark the Processed mail as READ
-			_, err = gmailService.Users.Messages.Modify(a.Config.Username, v.Id, &gmail.ModifyMessageRequest{
+			a.messages = append(a.messages, msg)
+		}
+		return nil
+	} else {
+		return errors.New("Unable to fill application's messages from an empty list")
+	}
+}
+
+// Label as Read all the processed mails
+func (a *Application) markAsReaded() error {
+	if len(a.messages) > 0 {
+		for _, v := range a.messages {
+			_, err := a.service.Users.Messages.Modify(a.Config.Username, v.Id, &gmail.ModifyMessageRequest{
 				RemoveLabelIds: []string{"UNREAD"},
 			}).Do()
 			if err != nil {
-				log.Println("Failed to mark processed email as readed")
-				return
+				return errors.New("Failed to mark a processed email as readed")
 			}
-			for attID, ext := range mRes {
-				Attachement, err := gmailService.Users.Messages.Attachments.Get(a.Config.Username, v.Id, attID).Do()
+		}
+		return nil
+	} else {
+		return errors.New("Unable to mark as readed an empty mail list ")
+	}
+}
+
+// Returns a map of mails Attachments IDs and files extensions
+// Attachment Id => file extension
+func (a *Application) getAttachmentsIds() (mapAttIdExt map[string]string, err error) {
+	if len(a.messages) > 0 {
+		mRes := make(map[string]string)
+		for _, msg := range a.messages {
+			if len(msg.Payload.Parts) > 0 {
+				for _, v := range msg.Payload.Parts {
+					if v.Filename != "" && len(v.Filename) > 0 && checkType(v.Filename) == true {
+						mRes[v.Body.AttachmentId] = getType(v.Filename)
+						log.Println(v.Filename)
+					}
+				}
+			} else {
+				return nil, errors.New("Unable to get Attachments IDs of an emptu payload")
+			}
+		}
+		return mRes, nil
+	} else {
+		return nil, errors.New("Unable to get attachments IDs & extensions of an empty application's messages slice")
+	}
+}
+
+func (a *Application) getAttachments(mapAttIdExt map[string]string) error {
+	if len(a.messages) > 0 {
+		for _, v := range a.messages {
+			for attID, extension := range mapAttIdExt {
+				Attachement, err := a.service.Users.Messages.Attachments.Get(a.Config.Username, v.Id, attID).Do()
 				if err != nil {
-					log.Println("Error getting the attachment %v of Message %v", attID, v.Id)
+					return errors.New("Failed to get a message attachment")
 				}
 				decoded, err := base64.URLEncoding.DecodeString(Attachement.Data)
 				if err != nil {
-					log.Println("Error in decoding attachment %v of Message", attID, v.Id)
+					return errors.New("Failed in decoding an attachment ")
 				}
-				switch ext {
+				switch extension {
 				case "csv":
 					records, err := csvReader(decoded)
 					if err == nil {
@@ -83,28 +141,57 @@ func (a *Application) StartApp() {
 				}
 
 			}
-
 		}
-
+		return nil
+	} else {
+		return errors.New("Unable to get attachments data of an empty application's messages slice")
 	}
-
 }
 
-// Get AttachmentIDs of a single Message Body that contains CSV or XLSX files
-// return a map: AttId=>extension
-func getMessageAttachments(message *gmail.Message) (MapAttIdExt map[string]string, err error) {
-	var parts = message.Payload.Parts
-	if len(parts) > 0 {
-		mRes := make(map[string]string)
-		for _, v := range parts {
-			if v.Filename != "" && len(v.Filename) > 0 && checkType(v.Filename) == true {
-				mRes[v.Body.AttachmentId] = getType(v.Filename)
-				log.Println(v.Filename)
-			}
-		}
-		return mRes, nil
+//
+func (a *Application) StartApp() {
+	// Create a new gmail service
+	err := a.newGmailService()
+	if err != nil {
+		// Failed to create new gmail API client grpc service :-)
+		log.Println(err)
+		return
 	}
-	return nil, errors.New("Empty Message Parts")
+	// Listing User messages based on the defined Filter query
+	listRes, err := a.listMessages()
+	if err != nil {
+		// No Messages correspond to the Query :-)
+		log.Println(err)
+		return
+	}
+	// Filling Application instance with the received filtered list messages :-)
+	err = a.setMessages(listRes)
+	if err != nil {
+		// No Messages correspond to the filter query :-)
+		log.Println(err)
+		return
+	}
+	log.Println("=> Processing ", len(a.messages), "mail")
+	// Mark Processed mails as readed :-)
+	err = a.markAsReaded()
+	if err != nil {
+		// Failed to mark a mail/mails as readed :-)
+		log.Println(err)
+		return
+	}
+	attmap, err := a.getAttachmentsIds()
+	if err != nil {
+		// Error in getting attchments IDs :-)
+		log.Println(err)
+		return
+	}
+	err = a.getAttachments(attmap)
+	if err != nil {
+		// Error in getting attchments IDs :-)
+		log.Println(err)
+		return
+	}
+
 }
 
 // Return File extension

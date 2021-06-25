@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/sabouaram/reporting-reader/filters"
 	"log"
 
 	"github.com/sabouaram/reporting-reader/app"
@@ -12,8 +13,14 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
+	f, err := filters.NewFilter([]string{"xlsx", "csv"}, "", conf.Username, "")
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Query:", f)
 	app := &app.Application{
 		Config: conf,
+		Filter: f,
 	}
 	app.StartApp()
 }
