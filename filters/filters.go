@@ -15,8 +15,5 @@ func NewFilter(Query string, Dateformat string) *Filter {
 		Date:  time.Now().Format(Dateformat),
 	}
 }
-func (f *Filter) Createfilter() {
-	if f.Query != "" {
-		f.Query = f.Query + " " + f.Date
-	}
-}
+
+// TO DO DYNAMIC QUERY CREATOR
