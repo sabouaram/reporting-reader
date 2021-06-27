@@ -1,11 +1,10 @@
 package main
 
 import (
-	"github.com/sabouaram/reporting-reader/filters"
-	"log"
-
-	"github.com/sabouaram/reporting-reader/app"
 	"github.com/sabouaram/reporting-reader/config"
+	"github.com/sabouaram/reporting-reader/filters"
+	"github.com/sabouaram/reporting-reader/internal/application"
+	"log"
 )
 
 func main() {
@@ -18,9 +17,9 @@ func main() {
 		log.Println(err)
 	}
 	log.Println("Query:", f)
-	app := &app.Application{
-		Config: conf,
-		Filter: f,
+	app, err := application.NewApplication(conf, f)
+	if err != nil {
+		log.Println(err)
 	}
 	app.StartApp()
 }

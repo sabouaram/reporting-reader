@@ -14,8 +14,8 @@ type GmailFilter struct {
 }
 
 /*
-Generates Gmail search query to filter mails with a specified attachments extension string slice, sender, receiver and date NewFilter([]string{"xlsx","pdf","csv"}, "","salim@bliink.io","")
-will generate a query for listing all mails that contains any of the specified extension addressed to salim@bliink.io in today's date
+Generates Gmail search query to filter mails with a specified attachments extension string slice, sender, receiver and date. Example NewFilter([]string{"xlsx","pdf","csv"}, "","salim@bliink.io","")
+will generate a query for listing all mails that contains any of the specified extensions addressed to salim@bliink.io in today's date
 */
 func NewFilter(attextensions []string, sender string, receiver string, date string) (*GmailFilter, error) {
 	if len(attextensions) > 0 && receiver != "" {
@@ -30,7 +30,7 @@ func NewFilter(attextensions []string, sender string, receiver string, date stri
 			date = dt.Format(layout)
 		}
 		return &GmailFilter{
-			Query: To + receiver + " " + From + sender + " " + AfterDate + date + HasAttach + strings.Join(attextensions[:], " OR "),
+			Query: To + receiver + " " + From + sender + " " + AfterDate + date + HasAttach + strings.Join(attextensions[:], " OR ") + " " + LabelUnread,
 		}, nil
 	} else {
 		return nil, errors.New("Unspecified Attachments extension and receiver user")

@@ -40,7 +40,9 @@ func CsvReader(data []byte) (records []string, err error) {
 			}
 			if len(record) > 0 {
 				tmp = strings.Join(record, "")
-				records = append(records, tmp)
+				if strings.Contains(tmp, string(r.Comment)) == false {
+					records = append(records, tmp)
+				}
 			}
 		}
 		return records, nil
