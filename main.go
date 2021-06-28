@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/sabouaram/reporting-reader/config"
-	"github.com/sabouaram/reporting-reader/filters"
 	"github.com/sabouaram/reporting-reader/internal/application"
+	"github.com/sabouaram/reporting-reader/internal/config"
+	gmailrepo "github.com/sabouaram/reporting-reader/internal/domain/repositories/gmail"
+	"github.com/sabouaram/reporting-reader/internal/domain/repositories/gmail/filters"
 	"log"
 )
 
@@ -17,7 +18,8 @@ func main() {
 		log.Println(err)
 	}
 	log.Println("Query:", f)
-	app, err := application.NewApplication(conf, f)
+	repo , _ := gmailrepo.NewGmailRepository(conf.Username, f.Query, conf.AuthorizedHTTPClient)
+	app, _ := application.NewApplication(conf, repo)
 	if err != nil {
 		log.Println(err)
 	}

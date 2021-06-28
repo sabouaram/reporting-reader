@@ -1,10 +1,10 @@
-package repositories
+package gmailrepo
 
 import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"github.com/sabouaram/reporting-reader/domain/repositories/utils"
+	"github.com/sabouaram/reporting-reader/internal/domain/repositories/utils"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 	"log"
@@ -19,7 +19,7 @@ type GmailRepository struct {
 }
 
 // Returns a new gmail repo instance
-func NewGmailRepository(username, query string, httpClient *http.Client) (gRepo *GmailRepository, err error) {
+func NewGmailRepository(username , query string, httpClient *http.Client) (gRepo *GmailRepository, err error) {
 	service, err := gmail.NewService(context.Background(), option.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, errors.New("Error Failed to create a new Gmail API Service")
