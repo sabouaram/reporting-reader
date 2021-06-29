@@ -33,34 +33,29 @@ func (a *Application) StartApp() (err error) {
 	listRes, err := a.gmail.ListMessages()
 	if err != nil {
 		// No Messages correspond to the Query :-)
-		log.Println(err)
 		return err
 	}
 	// Filling Gmail repo instance with the received filtered list messages :-)
 	err = a.gmail.SetMessages(listRes)
 	if err != nil {
 		// No Messages correspond to the filter query :-)
-		log.Println(err)
 		return err
 	}
 	// Mark Processed mails as readed :-)
 	err = a.gmail.MarkAsReaded()
 	if err != nil {
 		// Failed to mark a mail/mails as readed :-)
-		log.Println(err)
 		return err
 	}
 	attmap, err := a.gmail.GetAttachmentsIds()
 	if err != nil {
 		// Error in getting attchments IDs :-)
-		log.Println(err)
 		return err
 	}
 	log.Println("=> Processing ", len(attmap), "Attachments")
 	err = a.gmail.GetAttachments(attmap)
 	if err != nil {
 		// Error in getting attchments IDs :-)
-		log.Println(err)
 		return err
 	}
 	// Reset application messages slice
